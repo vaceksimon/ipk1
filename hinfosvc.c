@@ -116,8 +116,16 @@ int getcpuname(char *name) {
   return 0;
 }
 
-int main() {
-  char hostname[STRLEN];
+
+void dostuff(int sockfd) {
+	char buff[200];
+	read(sockfd, buff, 200);
+	printf("%s\n", buff);
+}
+
+
+int main(int argc, char **argv) {
+/*  char hostname[STRLEN];
   char cpu[STRLEN];
   gethostname(hostname, STRLEN);
   getcpuname(cpu);
@@ -125,7 +133,49 @@ int main() {
   printf("%s\n", cpu);
 
   double load = getcpuload();
-  printf("%.0f%%\n", load*100);
+  printf("%.0f%%\n", load*100);*/
+
+
+	if(argc < 2) {
+		fprintf(stderr, "Port number must be specified\n");
+		return 1;
+	}
+
+	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sockfd < 0) {
+		fprintf(stderr, "Error: Could not open socket\n");
+		return 1;
+	}
+	int portno = atoi(argv[1]);
+	struct sockaddr_in serv_addr;
+	memset(&serv_addr, 0, sizeof(struct sockaddr_in));
+
+	serv_addr.sin_family = AF_INET;
+  serv_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  serv_addr.sin_port = htons(portno);
+
+	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+		fprintf(stderr, "Error: Error on binding\n");
+		return 1;
+	}
+
+	if(listen(sockfd, 5) < 0) {
+		fprintf(stderr, "Error: Error on binding\n");
+		return 1;
+	}
+
+	int newsockfd;
+	while(1) {
+		newsockfd = accept(sockfd, NULL, NULL);
+		if(newsockfd < 0) {
+			fprintf(stderr, "Error: Could not open client socket\n");
+			return 1;
+		}
+		dostuff(newsockfd);
+		close(newsockfd);
+	
+	}
+
 
   return 0;
 }
