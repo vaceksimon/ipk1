@@ -63,7 +63,7 @@ unsigned long long gettotalcputime(unsigned long long *idled) {
  * Vypocet je podle vzorecku z https://stackoverflow.com/a/23376195
  * @return Vytizeni v tvaru desetinneho cisla.
  */
-double getcpuload() {
+void getcpuload(char *load) {
   unsigned long long previdle = 0;
   unsigned long long prevtotal = gettotalcputime(&previdle);
   sleep(1);
@@ -73,7 +73,7 @@ double getcpuload() {
   double totald = total - prevtotal;
   double idled = idle - previdle;
     
-  return (totald - idled)/totald;
+  sprintf(load, "%0.f%%", (totald - idled)/totald * 100);
 }
 
 
@@ -117,25 +117,62 @@ int getcpuname(char *name) {
 }
 
 
-void dostuff(int sockfd) {
-	char buff[200];
-	read(sockfd, buff, 200);
-	printf("%s\n", buff);
+/**
+ * @param type Udava, ktera odpoved se ma vygenerovat.
+ *             0 = hostname
+ *             1 = cpu-name
+ *             2 = load
+ *            -1 = bad request
+*/
+void sendresponse(int type, int sockfd) {
+	char resp[1024];
+	strcpy(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/plain;\r\n\r\n");
+	char data[100];
+	switch(type) {
+		case 0:
+			gethostname(data, 100);
+		break;
+
+		case 1:
+			getcpuname(data);
+		break;
+
+		case 2:
+			getcpuload(data);
+		break;
+
+		case -1:
+			strcpy(data, "HTTP/1.1 400 Bad Request\r\n\r\n400 Bad Request");
+			write(sockfd, data, strlen(data));
+			return;
+		break;
+
+		default:
+		break;
+	}
+	strcat(resp, data);
+	write(sockfd, resp, strlen(resp));
+}
+
+
+void handleresponse(int sockfd) {
+	char buff[1024];
+	read(sockfd, buff, 1024);
+	int option;
+
+	if(strstr(buff, "GET /hostname ") != NULL)
+		option = 0;
+	else if(strstr(buff, "GET /cpu-name ") != NULL)
+		option = 1;
+	else if(strstr(buff, "GET /load ") != NULL)
+		option = 2;
+	else
+		option = -1;
+	sendresponse(option, sockfd);
 }
 
 
 int main(int argc, char **argv) {
-/*  char hostname[STRLEN];
-  char cpu[STRLEN];
-  gethostname(hostname, STRLEN);
-  getcpuname(cpu);
-  printf("%s\n", hostname);
-  printf("%s\n", cpu);
-
-  double load = getcpuload();
-  printf("%.0f%%\n", load*100);*/
-
-
 	if(argc < 2) {
 		fprintf(stderr, "Port number must be specified\n");
 		return 1;
@@ -160,7 +197,7 @@ int main(int argc, char **argv) {
 	}
 
 	if(listen(sockfd, 5) < 0) {
-		fprintf(stderr, "Error: Error on binding\n");
+		fprintf(stderr, "Error: Error on listening\n");
 		return 1;
 	}
 
@@ -171,11 +208,9 @@ int main(int argc, char **argv) {
 			fprintf(stderr, "Error: Could not open client socket\n");
 			return 1;
 		}
-		dostuff(newsockfd);
+		handleresponse(newsockfd);
 		close(newsockfd);
-	
 	}
-
-
+	close(sockfd);
   return 0;
 }
