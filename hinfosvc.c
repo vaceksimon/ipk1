@@ -12,7 +12,6 @@
 #include <unistd.h>
 #include <string.h>
 
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
@@ -118,19 +117,22 @@ int getcpuname(char *name) {
 
 
 /**
+ * @brief Vygeneruje a odesle HTTP response, na zaklade hodnoty type.
+ *
  * @param type Udava, ktera odpoved se ma vygenerovat.
  *             0 = hostname
  *             1 = cpu-name
  *             2 = load
  *            -1 = bad request
 */
-void sendresponse(int type, int sockfd) {
-	char resp[1024];
+void sendresponse(int sockfd, int type) {
+	char resp[512];
+	// predchystam hlavicku response
 	strcpy(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/plain;\r\n\r\n");
 	char data[100];
 	switch(type) {
 		case 0:
-			gethostname(data, 100);
+			gethostname(data, sizeof(data));
 		break;
 
 		case 1:
@@ -142,7 +144,8 @@ void sendresponse(int type, int sockfd) {
 		break;
 
 		case -1:
-			strcpy(data, "HTTP/1.1 400 Bad Request\r\n\r\n400 Bad Request");
+			// neznamy pozadavek
+			strcpy(data, "HTTP/1.1 400 Bad Request\r\n\r\n");
 			write(sockfd, data, strlen(data));
 			return;
 		break;
@@ -150,14 +153,20 @@ void sendresponse(int type, int sockfd) {
 		default:
 		break;
 	}
+	// k response prilepim telo a zapisu do socketu
 	strcat(resp, data);
 	write(sockfd, resp, strlen(resp));
 }
 
-
-void handleresponse(int sockfd) {
+/**
+ * @brief Na zaklade HTTP requestu odesle prislusnou HTTP response.
+ * 
+ * @param sockfd
+ */
+void handleresponse(int sockfd) { 
+	// predpokladam, ze delka requestu neprekroci 1024 znaku.
 	char buff[1024];
-	read(sockfd, buff, 1024);
+	read(sockfd, buff, sizeof(buff));
 	int option;
 
 	if(strstr(buff, "GET /hostname ") != NULL)
@@ -168,7 +177,7 @@ void handleresponse(int sockfd) {
 		option = 2;
 	else
 		option = -1;
-	sendresponse(option, sockfd);
+	sendresponse(sockfd, option);
 }
 
 
