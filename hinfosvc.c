@@ -23,7 +23,7 @@
  * z: https://github.com/scaidermern/top-processes
  *
  * @param idled Pamet, kam se ulozi data pro dalsi vypocet.
- * @return Data o vyuzit cpu v dany moment.
+ * @return Data o vyuziti cpu v dany moment.
 */
 unsigned long long gettotalcputime(unsigned long long *idled) {
   FILE* file = fopen("/proc/stat", "r");
@@ -60,6 +60,8 @@ unsigned long long gettotalcputime(unsigned long long *idled) {
  * @brief Vypocte vytizeni CPU v rozmezi 1s.
  *
  * Vypocet je podle vzorecku z https://stackoverflow.com/a/23376195
+ *
+ * @param load Buffer, kam se ulozi zatez CPU.
  * @return Vytizeni v tvaru desetinneho cisla.
  */
 void getcpuload(char *load) {
@@ -119,6 +121,7 @@ int getcpuname(char *name) {
 /**
  * @brief Vygeneruje a odesle HTTP response, na zaklade hodnoty type.
  *
+ * @param sockfd File descriptor socketu klienta
  * @param type Udava, ktera odpoved se ma vygenerovat.
  *             0 = hostname
  *             1 = cpu-name
@@ -161,7 +164,7 @@ void sendresponse(int sockfd, int type) {
 /**
  * @brief Na zaklade HTTP requestu odesle prislusnou HTTP response.
  * 
- * @param sockfd
+ * @param sockfd File descriptor socketu klienta
  */
 void handleresponse(int sockfd) { 
 	// predpokladam, ze delka requestu neprekroci 1024 znaku.
@@ -180,19 +183,17 @@ void handleresponse(int sockfd) {
 	sendresponse(sockfd, option);
 }
 
-
-int main(int argc, char **argv) {
-	if(argc < 2) {
-		fprintf(stderr, "Port number must be specified\n");
-		return 1;
-	}
-
+/**
+ * @brief Nastavi http server.
+ * 
+ * @param portno Cislo portu, na kterem ma server naslouchat
+ */
+int setupserver(int portno) {
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd < 0) {
 		fprintf(stderr, "Error: Could not open socket\n");
 		return 1;
 	}
-	int portno = atoi(argv[1]);
 	struct sockaddr_in serv_addr;
 	memset(&serv_addr, 0, sizeof(struct sockaddr_in));
 
@@ -217,9 +218,19 @@ int main(int argc, char **argv) {
 			fprintf(stderr, "Error: Could not open client socket\n");
 			return 1;
 		}
+		// zpracovani request/response
 		handleresponse(newsockfd);
 		close(newsockfd);
 	}
 	close(sockfd);
-  return 0;
+}
+
+int main(int argc, char **argv) {
+	if(argc < 2) {
+		fprintf(stderr, "Port number must be specified\n");
+		return 1;
+	}
+	
+	int portno = atoi(argv[1]);
+	return setupserver(portno);
 }
