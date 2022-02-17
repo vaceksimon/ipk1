@@ -15,7 +15,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#define STRLEN 100
+#define ERROR_OK 0
+#define ERROR 1
 
 /**
  * @brief Vypocita informace o behu CPU z /proc/stat.
@@ -64,17 +65,22 @@ unsigned long long gettotalcputime(unsigned long long *idled) {
  * @param load Buffer, kam se ulozi zatez CPU.
  * @return Vytizeni v tvaru desetinneho cisla.
  */
-void getcpuload(char *load) {
+int getcpuload(char *load) {
   unsigned long long previdle = 0;
   unsigned long long prevtotal = gettotalcputime(&previdle);
+	if(!prevtotal)
+		return ERROR;
   sleep(1);
   unsigned long long idle = 0;
   unsigned long long total = gettotalcputime(&idle);
+	if(!total)
+		return ERROR;
 
   double totald = total - prevtotal;
   double idled = idle - previdle;
     
   sprintf(load, "%0.f%%", (totald - idled)/totald * 100);
+	return ERROR_OK;
 }
 
 
@@ -82,11 +88,12 @@ void getcpuload(char *load) {
  * @brief Ze souboru /proc/cpuinfo precte jmeno CPU.
  *
  * @param name String, do ktereho ulozi jmeno CPU.
+ * @return 0 pri uspechu
 */
 int getcpuname(char *name) {
   FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
   if(cpuinfo == NULL)
-    return 1;
+    return ERROR;
   char *TARGET = "model name";
 
   while(1) {
@@ -114,7 +121,7 @@ int getcpuname(char *name) {
     
   }
   fclose(cpuinfo);
-  return 0;
+  return ERROR_OK;
 }
 
 
@@ -139,11 +146,20 @@ void sendresponse(int sockfd, int type) {
 		break;
 
 		case 1:
-			getcpuname(data);
+			if(getcpuname(data)) {
+				strcpy(resp, "HTTP/1.1 500 Internal Server Error\r\n\r\n");
+				//write(sockfd, resp, strlen(resp));
+				send(sockfd, resp, strlen(resp), 0);
+				return;
+			}
 		break;
 
 		case 2:
-			getcpuload(data);
+			if(getcpuload(data)) {
+				strcpy(resp, "HTTP/1.1 500 Internal Server Error\r\n\r\n");
+				write(sockfd, resp, strlen(resp));
+				return;
+			}
 		break;
 
 		case -1:
@@ -169,7 +185,8 @@ void sendresponse(int sockfd, int type) {
 void handleresponse(int sockfd) { 
 	// predpokladam, ze delka requestu neprekroci 1024 znaku.
 	char buff[1024];
-	read(sockfd, buff, sizeof(buff));
+	//read(sockfd, buff, sizeof(buff));
+	recv(sockfd, buff, sizeof(buff), 0);
 	int option;
 
 	if(strstr(buff, "GET /hostname ") != NULL)
@@ -192,7 +209,7 @@ int setupserver(int portno) {
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd < 0) {
 		fprintf(stderr, "Error: Could not open socket\n");
-		return 1;
+		return ERROR;
 	}
 	struct sockaddr_in serv_addr;
 	memset(&serv_addr, 0, sizeof(struct sockaddr_in));
@@ -206,9 +223,9 @@ int setupserver(int portno) {
 		return 1;
 	}
 
-	if(listen(sockfd, 5) < 0) {
+	if(listen(sockfd, 1) < 0) {
 		fprintf(stderr, "Error: Error on listening\n");
-		return 1;
+		return ERROR;
 	}
 
 	int newsockfd;
@@ -216,7 +233,7 @@ int setupserver(int portno) {
 		newsockfd = accept(sockfd, NULL, NULL);
 		if(newsockfd < 0) {
 			fprintf(stderr, "Error: Could not open client socket\n");
-			return 1;
+			return ERROR;
 		}
 		// zpracovani request/response
 		handleresponse(newsockfd);
@@ -228,9 +245,13 @@ int setupserver(int portno) {
 int main(int argc, char **argv) {
 	if(argc < 2) {
 		fprintf(stderr, "Port number must be specified\n");
-		return 1;
+		return ERROR;
 	}
 	
 	int portno = atoi(argv[1]);
+	if(portno == 0) {
+		fprintf(stderr, "Port number must be an integer");
+		return ERROR;
+	}
 	return setupserver(portno);
 }
