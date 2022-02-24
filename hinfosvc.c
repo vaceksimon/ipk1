@@ -148,8 +148,7 @@ void sendresponse(int sockfd, int type) {
 		case 1:
 			if(getcpuname(data)) {
 				strcpy(resp, "HTTP/1.1 500 Internal Server Error\r\n\r\n");
-				//write(sockfd, resp, strlen(resp));
-				send(sockfd, resp, strlen(resp), 0);
+				write(sockfd, resp, strlen(resp));
 				return;
 			}
 		break;
@@ -231,6 +230,8 @@ int setupserver(int portno) {
 	int newsockfd;
 	while(1) {
 		newsockfd = accept(sockfd, NULL, NULL);
+		int optval = 1;
+		// TODO setsockopt(newsockfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &optval, sizeof(int));
 		if(newsockfd < 0) {
 			fprintf(stderr, "Error: Could not open client socket\n");
 			return ERROR;

@@ -18,7 +18,7 @@ Server se běží na adrese 127.0.0.1 a zprácovává 3 typy dotazů:
 - `GET http://localhost:12345/load` vrátí aktuální informaci o zátěži
 
 ## Vypnutí serveru
-`Server se dá vypnout podržením kláves CTRL+C. V případě, že byl spuštěn na pozadí, je nutné ručně ukončit proces pomocí `kill pid`, kde `pid` je identifikátor procesu.
+Server se dá vypnout podržením kláves CTRL+C. V případě, že byl spuštěn na pozadí, je nutné ručně ukončit proces pomocí `kill pid`, kde `pid` je identifikátor procesu.
 Např.:
 ```
 ./hinfosvc 12345 &
