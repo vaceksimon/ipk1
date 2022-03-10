@@ -139,7 +139,6 @@ void sendresponse(int sockfd, int type) {
 	char resp[512];
 	// predchystam hlavicku response
 	strcpy(resp, "HTTP/1.1 200 OK\r\nContent-Type: text/plain;\r\n\r\n");
-	// TODO pridat velikost dat v tele response
 	char data[100];
 	switch(type) {
 		case 0:
@@ -185,8 +184,7 @@ void sendresponse(int sockfd, int type) {
 void handleresponse(int sockfd) { 
 	// predpokladam, ze delka requestu neprekroci 1024 znaku.
 	char buff[1024];
-	//read(sockfd, buff, sizeof(buff));
-	recv(sockfd, buff, sizeof(buff), 0);
+	read(sockfd, buff, sizeof(buff));
 	int option;
 
 	if(strstr(buff, "GET /hostname ") != NULL)
@@ -231,7 +229,6 @@ int setupserver(int portno) {
 	int newsockfd;
 	while(1) {
 		newsockfd = accept(sockfd, NULL, NULL);
-		// TODO setsockopt(newsockfd, SOL_SOCKET, SO_REUSEADDR, (const void *) &optval, sizeof(int));
 		if(newsockfd < 0) {
 			fprintf(stderr, "Error: Could not open client socket\n");
 			return ERROR;
